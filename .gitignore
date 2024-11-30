@@ -1,0 +1,3 @@
+aoc2024
+src/*.o
+src/days.hpp
