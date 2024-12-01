@@ -16,6 +16,7 @@ using Answer = int64_t;
 std::vector<std::string> split_at(std::istream& stream, char c);
 std::vector<std::string> split_at(const std::string& str, char c);
 std::vector<std::string> split_at(const char *str, char c);
+
 std::vector<std::string> split_lines(std::istream& stream);
 std::vector<std::string> split_lines(const std::string& str);
 std::vector<std::string> split_lines(const char *str);
@@ -23,6 +24,15 @@ std::vector<std::string> split_lines(const char *str);
 std::vector<int64_t> split_ints(std::istream& stream);
 std::vector<int64_t> split_ints(const std::string& str);
 std::vector<int64_t> split_ints(const char *str);
+
+std::vector<std::vector<std::string>> split_columns(std::istream& stream);
+std::vector<std::vector<std::string>> split_columns(const std::string& str);
+std::vector<std::vector<std::string>> split_columns(const char *str);
+
+std::vector<std::vector<int64_t>> split_int_columns(std::istream& stream);
+std::vector<std::vector<int64_t>> split_int_columns(const std::string& str);
+std::vector<std::vector<int64_t>> split_int_columns(const char *str);
+
 
 
 #define CHECK(cond) do { if (!(cond)) { throw std::runtime_error(std::format("Assertion error in file {} at line {}: {}", __FILE__, __LINE__, #cond)); } } while (0)
