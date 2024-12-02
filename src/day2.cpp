@@ -35,15 +35,45 @@ bool is_report_safe(const std::vector<int64_t>& nums)
     });
 }
 
+bool is_report_safe(const std::vector<int64_t>& nums, size_t i_skip)
+{
+    std::vector<int64_t> nums_;
+    for (size_t i = 0; i < nums.size(); i++) {
+	if (i != i_skip) {
+	    nums_.push_back(nums[i]);
+	}
+    }
+    return is_report_safe(nums_);
+}
+
+bool is_report_safe_2(const std::vector<int64_t>& nums)
+{
+    if (!is_report_safe(nums)) {
+	for (size_t i_skip = 0; i_skip < nums.size(); i_skip++) {
+	    if (is_report_safe(nums, i_skip))
+		return true;
+	}
+	return false;
+    } else {
+	return true;
+    }
+}
+
+
 Answer part_1(const std::string& input)
 {
     std::vector<std::vector<int64_t>> num_lines = split_int_lines(input);
-    return std::count_if(num_lines.begin(), num_lines.end(), is_report_safe);
+    return std::count_if(num_lines.begin(), num_lines.end(), [](const auto& r){
+	return is_report_safe(r);
+    });
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    std::vector<std::vector<int64_t>> num_lines = split_int_lines(input);
+    return std::count_if(num_lines.begin(), num_lines.end(), [](const auto& r){
+	return is_report_safe_2(r);
+    });
 }
 
 void tests()
@@ -68,6 +98,15 @@ void tests()
     CHECK(!is_report_safe(num_lines[4]));
     CHECK(is_report_safe(num_lines[5]));
     CHECK(part_1(test_input_1) == 2);
+
+    //////////////////////////////////////
+    CHECK(is_report_safe_2(num_lines[0]));
+    CHECK(!is_report_safe_2(num_lines[1]));
+    CHECK(!is_report_safe_2(num_lines[2]));
+    CHECK(is_report_safe_2(num_lines[3]));
+    CHECK(is_report_safe_2(num_lines[4]));
+    CHECK(is_report_safe_2(num_lines[5]));
+    CHECK(part_2(test_input_1) == 4);
 }
 
 } //namespace day2
