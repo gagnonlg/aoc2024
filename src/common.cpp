@@ -132,3 +132,26 @@ std::vector<std::vector<int64_t>> split_int_columns(const char *str)
     std::stringstream stream(str);
     return split_int_columns(stream);
 }
+
+std::vector<std::vector<int64_t>> split_int_lines(std::istream& stream)
+{
+    std::vector<std::string> lines = split_lines(stream);
+    std::vector<std::vector<int64_t>> int_lines;
+    std::transform(std::begin(lines), std::end(lines),
+		   std::back_inserter(int_lines), [](const std::string& s) {
+		       return split_ints(s);
+		   });
+    return int_lines;
+}
+
+std::vector<std::vector<int64_t>> split_int_lines(const std::string& str)
+{
+    std::stringstream stream(str);
+    return split_int_lines(stream);
+}
+
+std::vector<std::vector<int64_t>> split_int_lines(const char *str)
+{
+    std::stringstream stream(str);
+    return split_int_lines(stream);
+}
