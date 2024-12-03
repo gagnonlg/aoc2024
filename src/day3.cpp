@@ -4,20 +4,62 @@
 
 namespace day3 {
 
-std::vector<size_t> find_mul_indices(const std::string& input)
+std::vector<size_t> find_all_indices(const std::string& input,
+				     const std::string& pattern)
 {
     std::vector<size_t> idx;
     size_t offset = 0;
-    while (true) {
-	size_t pos = input.find("mul(", offset);
+
+    while (offset < input.size()) {
+	size_t pos = input.find(pattern, offset);
 	if (pos != std::string::npos) {
 	    idx.push_back(pos);
-	    offset = pos + 4;
+	    offset = pos + pattern.size();
 	} else {
 	    break;
 	}
     }
+
     return idx;
+}
+
+std::vector<std::pair<size_t, size_t>> find_enabled_ranges(const std::string& input)
+{
+    std::vector<size_t> i_do = find_all_indices(input, "do()");
+    std::vector<size_t> i_dont = find_all_indices(input, "don't()");
+
+    CHECK(!i_do.empty());
+    CHECK(!i_dont.empty());
+    CHECK(i_do[0] != 0);
+    CHECK(i_dont[0] != 0);
+
+    std::vector<std::pair<size_t, size_t>> ranges;
+    size_t low = 0;
+    while (true) {
+	auto it1 = std::upper_bound(i_dont.begin(), i_dont.end(), low);
+	if (it1 != i_dont.end()) {
+	    ranges.emplace_back(low, *it1);
+	} else {
+	    // Stop cond 1: Valid up to the end
+	    ranges.emplace_back(low, input.size());
+	    break;
+	}
+
+	auto it2 = std::upper_bound(i_do.begin(), i_do.end(), *it1);
+	if (it2 != i_do.end()) {
+	    low = *it2;
+	} else {
+	    // Stop cond 2: Never re-enabled
+	    break;
+	}
+    }
+    return ranges;
+}
+
+
+std::vector<size_t> find_mul_indices(const std::string& input)
+{
+    return find_all_indices(input, "mul(");
 }
 
 std::string leading_digits(const std::string& input, size_t offset)
@@ -75,16 +117,66 @@ std::vector<int64_t> all_muls(const std::string& input)
     return res;
 }
 
+std::vector<size_t> filter_indices(
+    const std::vector<size_t>& all_indices,
+    const std::vector<std::pair<size_t, size_t>>& ranges)
+{
+    std::vector<size_t> indices;
+    size_t i_range = 0;
+    size_t i_idx = 0;
+
+    while (i_idx < all_indices.size() && i_range < ranges.size()) {
+
+	size_t xlow = ranges[i_range].first;
+	size_t xup = ranges[i_range].second;
+	size_t x = all_indices[i_idx];
+
+	// is x below range? just keep looking!
+	if (x < xlow) {
+	    i_idx++;
+	    continue;
+	}
+	// is x above range? get the next range!
+	if (x >= xup) {
+	    i_range++;
+	    continue;
+	}
+
+	// else, in range!
+	indices.push_back(x);
+	i_idx++;
+    }
+    return indices;
+}
+
+std::vector<int64_t> all_muls_with_conds(const std::string& input)
+{
+    std::vector<std::pair<size_t, size_t>> ranges = find_enabled_ranges(input);
+    std::vector<size_t> indices = filter_indices(find_mul_indices(input), ranges);
+
+    
+    std::vector<int64_t> res;
+    for (size_t idx : indices) {
+	std::optional<int64_t> o = mul_at(input, idx);
+	if (o) {
+	    res.push_back(*o);
+	}
+    }
+    return res;
+}
+
 Answer part_1(const std::string& input)
 {
     std::vector<int64_t> muls = all_muls(input);
     return std::accumulate(muls.begin(), muls.end(), 0);
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    std::vector<int64_t> muls = all_muls_with_conds(input);
+    return std::accumulate(muls.begin(), muls.end(), 0);
 }
+
 
 void tests()
 {
@@ -106,6 +198,24 @@ void tests()
 	"xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
     CHECK(all_muls(ex) == std::vector<int64_t>({2*4,5*5,11*8,8*5}));
     CHECK(part_1(ex) == 161);
+
+    ////////////////////////////////////
+    
+    ex = "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
+    std::vector<std::pair<size_t, size_t>> ranges = find_enabled_ranges(ex);
+    CHECK(ranges.size() == 2);
+    CHECK(ranges[0].first == 0);
+    CHECK(ranges[0].second == 20);
+    CHECK(ranges[1].first == 59);
+    CHECK(ranges[1].second == 73);
+
+    CHECK(filter_indices(find_mul_indices(ex), find_enabled_ranges(ex))
+	  == std::vector<size_t>({1,64}));
+
+    CHECK(all_muls_with_conds(ex) == std::vector<int64_t>({2*4,8*5}));
+
+    CHECK(part_2(ex) == 48);
+    
 }
 
 } //namespace day3
