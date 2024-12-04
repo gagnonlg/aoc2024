@@ -242,6 +242,28 @@ size_t xmas_at(size_t i, size_t j, const Grid& grid)
     return n_xmas;
 }
 
+size_t x_mas_at(size_t i, size_t j, const Grid& grid)
+{
+    if (i == 0 || i == (grid.rows() - 1))
+	return false;
+    if (j == 0 || j == (grid.cols() - 1))
+	return false;
+    if (grid.at(i, j) != 'A')
+	return false;
+
+    char x = grid.at(i - 1, j - 1);
+    char y = grid.at(i + 1, j + 1);
+    if (!(((x == 'M') && (y == 'S')) || ((x == 'S') && (y == 'M'))))
+	return false;
+
+    x = grid.at(i - 1, j + 1);
+    y = grid.at(i + 1, j - 1);
+    if (!(((x == 'M') && (y == 'S')) || ((x == 'S') && (y == 'M'))))
+	return false;
+	  
+    return true;
+}
+
 
 Answer part_1(const std::string& input)
 {
@@ -258,9 +280,20 @@ Answer part_1(const std::string& input)
     return ans(n);
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    std::vector<std::string> lines = split_lines(input);
+    Grid grid(lines.size(), lines[0].size());
+    grid.insert(lines);
+
+    size_t n = 0;
+    for (size_t i = 0; i < grid.rows(); i++) {	
+	for (size_t j = 0; j < grid.cols(); j++) {
+	    if (x_mas_at(i, j, grid))
+		n++;
+	}
+    }
+    return ans(n);
 }
 
 void tests()
@@ -300,6 +333,10 @@ void tests()
 
     CHECK(part_1(test_input_1) == 18);
 
+    /////////////////////////////
+
+    CHECK(x_mas_at(1, 2, grid));
+    CHECK(part_2(test_input_1) == 9);
 }
 
 } //namespace day4
