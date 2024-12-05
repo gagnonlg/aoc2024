@@ -3,12 +3,13 @@
 /////////////////////////////////////
 // String handling
 
-std::vector<std::string> split_at(std::istream& stream, char c)
+std::vector<std::string> split_at(std::istream& stream, char c, bool allow_empty)
 {
     std::vector<std::string> lines;
     std::string buf;
     while(std::getline(stream, buf, c)) {
-	if (std::any_of(buf.begin(), buf.end(), [&](auto x){return x != c;})) {
+	if (allow_empty ||
+	    std::any_of(buf.begin(), buf.end(), [&](auto x){return x != c;})) {
 	    lines.push_back(std::move(buf));
 	}
 	buf.clear();
@@ -16,21 +17,21 @@ std::vector<std::string> split_at(std::istream& stream, char c)
     return lines;
 }
 
-std::vector<std::string> split_at(const std::string& str, char c)
+std::vector<std::string> split_at(const std::string& str, char c, bool allow_empty)
 {
       std::stringstream stream(str);
-      return split_at(stream, c);
+      return split_at(stream, c, allow_empty);
 }
 
-std::vector<std::string> split_at(const char *str, char c)
+std::vector<std::string> split_at(const char *str, char c, bool allow_empty)
 {
       std::stringstream stream(str);
-      return split_at(stream, c);
+      return split_at(stream, c, allow_empty);
 }
 
 std::vector<std::string> split_lines(std::istream& stream)
 {
-    return split_at(stream, '\n');
+    return split_at(stream, '\n', true);
 }
 
 std::vector<std::string> split_lines(const std::string& str)
@@ -46,9 +47,9 @@ std::vector<std::string> split_lines(const char *str)
 }
 
 
-std::vector<int64_t> split_ints(std::istream& stream)
+std::vector<int64_t> split_ints(std::istream& stream, char c)
 {
-    std::vector<std::string> strs = split_at(stream, ' ');
+    std::vector<std::string> strs = split_at(stream, c);
     std::vector<int64_t> nums;
     std::transform(strs.begin(), strs.end(), std::back_inserter(nums),
 		   [](const auto& s){return std::stoll(s);});
@@ -56,16 +57,16 @@ std::vector<int64_t> split_ints(std::istream& stream)
 }
 
 
-std::vector<int64_t> split_ints(const std::string& str)
+std::vector<int64_t> split_ints(const std::string& str, char c)
 {
     std::stringstream stream(str);
-    return split_ints(stream);
+    return split_ints(stream, c);
 }
 
-std::vector<int64_t> split_ints(const char *str)
+std::vector<int64_t> split_ints(const char *str, char c)
 {
     std::stringstream stream(str);
-    return split_ints(stream);
+    return split_ints(stream, c);
 }
 
 
@@ -75,7 +76,7 @@ std::vector<std::vector<std::string>> split_columns(std::istream& stream)
 
     std::vector<std::vector<std::string>> rows;   
     std::transform(lines.begin(), lines.end(), std::back_inserter(rows),
-		   [](const std::string& s){ return split_at(s, ' '); });
+		   [](const std::string& s){ return split_at(s, ' ', false); });
 
     if (rows.empty()) {
 	return {};
