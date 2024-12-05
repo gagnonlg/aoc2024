@@ -61,6 +61,21 @@ std::optional<int64_t> middle_if_ordered(
     }
 }
 
+std::optional<int64_t> middle_if_corrected(
+    std::vector<int64_t>& list, const MapComp& comp)
+{
+    if (!is_ordered(list, comp)) {
+	std::sort(list.begin(), list.end(), comp);
+	CHECK(list.size() % 2 == 1);
+	int64_t half_size = static_cast<int64_t>(list.size() / 2); 
+	auto mid = list.begin() + half_size;
+	return *mid;
+    } else {
+	return {};
+    }
+}
+
+
 Answer part_1(const std::string& input)
 {
     auto [map, lists] = parse_data(input);
@@ -75,9 +90,18 @@ Answer part_1(const std::string& input)
     return acc;
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    auto [map, lists] = parse_data(input);
+    MapComp comp(map);
+    Answer acc = 0;
+    for (std::vector<int64_t>& xs : lists) {
+	std::optional<int64_t> x = middle_if_corrected(xs, comp);
+	if (x) {
+	    acc += *x;
+	}
+    }
+    return acc;
 }
 
 void tests()
@@ -140,6 +164,18 @@ void tests()
     CHECK(!middle_if_ordered(list[5], comp));
 
     CHECK(part_1(test_input_1) == 143);
+
+    /////////////////////////////////////
+
+    CHECK(!middle_if_corrected(list[0], comp));
+    CHECK(!middle_if_corrected(list[1], comp));
+    CHECK(!middle_if_corrected(list[2], comp));
+    CHECK(middle_if_corrected(list[3], comp) == 47);
+    CHECK(middle_if_corrected(list[4], comp) == 29);
+    CHECK(middle_if_corrected(list[5], comp) == 47);
+
+    CHECK(part_2(test_input_1) == 123);
+
 }
 
 } //namespace day5
