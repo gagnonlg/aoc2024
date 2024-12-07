@@ -29,7 +29,7 @@ std::vector<InputData> read_input_data(const std::string& input)
     return retv;
 }
 
-enum Operator { Add, Mul };
+enum Operator { Add, Mul, Concat };
 enum Result {Low, Equal, High};
 
 Result eval(const InputData& data, const std::vector<Operator>& operators)
@@ -47,6 +47,9 @@ Result eval(const InputData& data, const std::vector<Operator>& operators)
 	case Mul:
 	    acc = acc * data.operands[i];
 	    break;
+	case Concat:
+	    acc = stoull(std::to_string(acc) + std::to_string(data.operands[i]));
+	    break;
 	}
     }
 
@@ -62,48 +65,39 @@ bool produced_by(const InputData& data, const std::vector<Operator>& operators)
     return eval(data, operators) == Equal;
 }
 
-bool is_valid_data(const InputData& data, std::vector<Operator>& operators, size_t i, size_t& count, std::set<std::vector<Operator>>& seen)
+bool is_valid_data(const InputData& data,
+		   std::vector<Operator>& operators,
+		   size_t i,
+		   bool concat = false)
 {
     if (i == operators.size()) {
-	CHECK(seen.insert(operators).second);
-	count++;
 	return produced_by(data, operators);
     }
 
     operators[i] = Mul;
-    bool p = false;
-    if (is_valid_data(data, operators, i + 1, count, seen))
-	// return true;
-	p = true;
+    if (is_valid_data(data, operators, i + 1, concat))
+	return true;
 
     operators[i] = Add;
-    if (is_valid_data(data, operators, i + 1, count, seen))
-	// return true;
-	p = true;
+    if (is_valid_data(data, operators, i + 1, concat))
+	return true;
 
-    // return false;
-    return p;
+    if (concat) {
+	operators[i] = Concat;
+	if (is_valid_data(data, operators, i + 1, concat))
+	    return true;
+    }
+
+    return false;
 }
 
-void print_data(const InputData& data)
-{
-    std::cout << "data.result: " << data.result << std::endl;
-    std::cout << "data.operands: ";
-    for (auto num : data.operands)
-	std::cout << num << " ";
-    std::cout << std::endl;
-}
-
-bool is_valid_data(const InputData& data)
+bool is_valid_data(const InputData& data, bool concat = false)
 {
     std::vector<Operator> operators(data.operands.size() - 1, Operator::Mul);
-    
-    size_t count = 0;
-    std::set<std::vector<Operator>> seen;
-    bool v = is_valid_data(data, operators, 0, count, seen);
-    CHECK(count == (1u << operators.size()));
-    return v;
+    return is_valid_data(data, operators, 0, concat);
 }
+
+
 
 void checker_part1(int trials = 100000)
 {
@@ -122,12 +116,6 @@ void checker_part1(int trials = 100000)
 
 	for (size_t i = 0; i < n; i++)
 	    data.operands.push_back(dist_num(rng));
-
-	std::uniform_int_distribution<std::mt19937::result_type> dist_1(0, n);
-	size_t i_1 = dist_1(rng);
-	if (i_1 < n)
-	    data.operands[i_1] = 1;
-
 	
 	CHECK(!data.operands.empty());
 	data.result = data.operands[0];
@@ -181,9 +169,19 @@ Answer part_1(const std::string& input)
     return ans(acc);
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    std::vector<InputData> data = read_input_data(input);
+    uint64_t acc = std::accumulate(data.begin(), data.end(), 0ull,
+			   [](uint64_t a, const InputData& d){
+			       if (is_valid_data(d)
+				   || is_valid_data(d, true))
+				   return a + d.result;
+			       else {
+				   return a;
+			       }
+			   });
+    return ans(acc);
 }
 
 void tests()
@@ -249,6 +247,12 @@ void tests()
 
     CHECK(part_1(test_input_1) == 3749);
 
+    /////////////////////////////////////////
+
+    CHECK(produced_by(data[3], {Concat}));
+    CHECK(produced_by(data[4], {Mul, Concat, Mul}));
+    CHECK(produced_by(data[6], {Concat, Add}));
+    CHECK(part_2(test_input_1) == 11387);
    
 }
 
