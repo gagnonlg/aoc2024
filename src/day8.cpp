@@ -56,6 +56,41 @@ bool in_bounds(const InputData& data, const std::pair<int64_t, int64_t>& x)
 }
 
 std::set<std::pair<int64_t, int64_t>>
+lookup_antinodes_line(const InputData& data,
+		      const std::pair<int64_t, int64_t>& x,
+		      const std::pair<int64_t, int64_t>& y)
+{
+    CHECK(x < y);
+    auto it_x = data.map.find(x);
+    auto it_y = data.map.find(y);
+    CHECK(it_x != data.map.end());
+    CHECK(it_y != data.map.end());
+    CHECK(it_x->second == it_y->second);
+
+    std::set<std::pair<int64_t, int64_t>> antinodes;
+    std::pair<int64_t, int64_t> dist = compute_diff(x, y);
+
+    // Look forward
+    std::pair<int64_t, int64_t> trial = {x.first + dist.first,
+					 x.second + dist.second};
+    while (in_bounds(data, trial)) {
+	antinodes.insert(trial);
+	trial.first += dist.first;
+	trial.second += dist.second;
+    }
+ 
+    // Look backward
+    trial = {y.first - dist.first, y.second - dist.second};
+    while (in_bounds(data, trial)) {
+	antinodes.insert(trial);
+	trial.first -= dist.first;
+	trial.second -= dist.second;
+    }
+    
+    return antinodes;
+}
+
+std::set<std::pair<int64_t, int64_t>>
 lookup_antinodes(const InputData& data,
 		 const std::pair<int64_t, int64_t>& x,
 		 const std::pair<int64_t, int64_t>& y)
@@ -104,26 +139,30 @@ lookup_doublets_backwards(const InputData& data,
 
 std::set<std::pair<int64_t, int64_t>>
 lookup_antinodes(const InputData& data,
-		 const std::pair<int64_t, int64_t>& x)
+		 const std::pair<int64_t, int64_t>& x,
+		 bool line)
 {
     std::set<std::pair<int64_t, int64_t>> antinodes;
     std::set<std::pair<int64_t, int64_t>> doublets =
 	lookup_doublets_backwards(data, x);
     for (const auto& start : doublets) {
-	std::set<std::pair<int64_t, int64_t>> as
-	    = lookup_antinodes(data, start, x);
+	std::set<std::pair<int64_t, int64_t>> as;
+	if (!line)
+	    as = lookup_antinodes(data, start, x);
+	else
+	    as = lookup_antinodes_line(data, start, x);
 	antinodes.insert(as.begin(), as.end());
     }
     return antinodes;
 }
 
 std::set<std::pair<int64_t, int64_t>>
-lookup_antinodes(const InputData& data)
+lookup_antinodes(const InputData& data, bool line)
 {
     std::set<std::pair<int64_t, int64_t>> antinodes;
     for (const auto& x : data.map) {
 	std::set<std::pair<int64_t, int64_t>> as
-	    = lookup_antinodes(data, x.first);
+	    = lookup_antinodes(data, x.first, line);
 	antinodes.insert(as.begin(), as.end());
     }
     return antinodes;
@@ -132,12 +171,13 @@ lookup_antinodes(const InputData& data)
 Answer part_1(const std::string& input)
 {
     InputData data = read_input_data(input);
-    return ans(lookup_antinodes(data).size());
+    return ans(lookup_antinodes(data, false).size());
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    InputData data = read_input_data(input);
+    return ans(lookup_antinodes(data, true).size());
 }
 
 void tests()
@@ -259,17 +299,17 @@ void tests()
     a = lookup_doublets_backwards(test_data[3], {7,6});
     CHECK(a.empty());
 
-    a = lookup_antinodes(test_data[3], {3, 4});
+    a = lookup_antinodes(test_data[3], {3, 4}, false);
     CHECK(a.empty());
-    a = lookup_antinodes(test_data[3], {4, 8});
+    a = lookup_antinodes(test_data[3], {4, 8}, false);
     CHECK(a.size() == 1);
     CHECK(a.contains({2, 0}));
-    a = lookup_antinodes(test_data[3], {5, 5});
+    a = lookup_antinodes(test_data[3], {5, 5}, false);
     CHECK(a.size() == 3);
     CHECK(a.contains({6, 2}));
     CHECK(a.contains({1, 3}));
     CHECK(a.contains({7, 6}));
-    a = lookup_antinodes(test_data[3], {7, 6});
+    a = lookup_antinodes(test_data[3], {7, 6}, false);
     CHECK(a.empty());
 
 
@@ -280,24 +320,66 @@ void tests()
 	    CHECK(A.contains(x));		\
     } while (0)
 
-    a = lookup_antinodes(test_data[1]);
+    a = lookup_antinodes(test_data[1], false);
     s = read_solution(test_input[1]);
     CHECK_SOLUTION(a, s);
-    a = lookup_antinodes(test_data[2]);
+    a = lookup_antinodes(test_data[2], false);
     s = read_solution(test_input[2]);
     CHECK_SOLUTION(a, s);
-    a = lookup_antinodes(test_data[3]);
+    a = lookup_antinodes(test_data[3], false);
     s = read_solution(test_input[3]);
     CHECK(a.size() == s.size() + 1);
     CHECK_SOLUTION(a, s);
     CHECK(a.contains({7,6}));
-    a = lookup_antinodes(test_data[4]);
+    a = lookup_antinodes(test_data[4], false);
     s = read_solution(test_input[4]);
     CHECK(a.size() == s.size() + 1);
     CHECK_SOLUTION(a, s);
     CHECK(a.contains({5,6}));
     
     CHECK(part_1(test_input[0]) == 14);
+
+    ///////////////////////////////////////////////////
+
+    const char * test_input_2 =
+	"T....#....\n"
+	"...T......\n"
+	".T....#...\n"
+	".........#\n"
+	"..#.......\n"
+	"..........\n"
+	"...#......\n"
+	"..........\n"
+	"....#.....\n"
+	"..........\n";
+
+    InputData data = read_input_data(test_input_2);
+    a = lookup_antinodes_line(data, {0, 0}, {1, 3});
+    CHECK(a.size() == 4);
+    CHECK(a.contains({0, 0}));
+    CHECK(a.contains({1, 3}));
+    CHECK(a.contains({2, 6}));
+    CHECK(a.contains({3, 9}));
+
+    a = lookup_antinodes(data, {2, 1}, true);
+    CHECK(a.size() == 7);
+    CHECK(a.contains({0, 0}));
+    CHECK(a.contains({2, 1}));
+    CHECK(a.contains({4, 2}));
+    CHECK(a.contains({6, 3}));
+    CHECK(a.contains({8, 4}));
+    CHECK(a.contains({1, 3}));
+    CHECK(a.contains({0, 5}));
+
+    a = lookup_antinodes(data, true);
+    s = read_solution(test_input_2);
+    CHECK(a.size() == s.size() + 3);
+    CHECK_SOLUTION(a, s);
+    CHECK(a.contains({0,0}));
+    CHECK(a.contains({1,3}));
+    CHECK(a.contains({2,1}));
+
+    CHECK(part_2(test_input[0]) == 34);
     
 }
 
