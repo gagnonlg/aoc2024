@@ -188,6 +188,87 @@ fill_free(Disk& disk, Disk::iterator D, Disk::iterator S)
     throw std::logic_error("unreachable");
 }
 
+std::pair<Disk::iterator, Disk::iterator>
+maybe_move(Disk& disk, Disk::iterator D, Disk::iterator S)
+{
+    int64_t ssize = blocksize(*S);
+
+    Disk::iterator D2;
+    for (D2 = D; D2 != S && D2 != disk.end(); ++D2) {
+	if (is_free(*D2) && blocksize(*D2) >= ssize)
+	    break;
+    }
+
+    if (D2 == S || D2 == disk.end())
+	return {D, S};
+
+    int64_t dsize = blocksize(*D2);
+
+    bool isD = D2 == D;
+
+    if (dsize == ssize) {
+	auto p = swap_blocks(disk, D2, S);
+	return {isD? p.first : D, p.second};
+    }
+
+    else if (dsize > ssize) {
+	split_block(disk, D2, ssize);
+	auto p = swap_blocks(disk, D2, S);
+	return {isD? p.first : D, p.second};
+    }
+
+    else {
+	return {D, S};
+    }
+}
+
+
+void compact(Disk& disk, bool trace = false)
+{
+    // Disk::iterator D = std::find(disk.begin(), disk.end(), [](is_free);
+    // Disk::reverse_iterator S = std::find(disk.rbegin(), disk.rend(), is_file);
+    auto D = disk.begin();
+    auto S = disk.rbegin();
+
+    if (trace) {
+	print_disk(disk);
+	// print_blocks(disk.begin(), disk.end());
+    }
+
+    while (true) {
+	if (D == std::next(S).base())
+	    break;
+	if (D == disk.end())
+	    break;
+	if (!is_free(*D)) {
+	    D = std::next(D);
+	    continue;
+	}
+	if (S == disk.rend())
+	    break;
+	if (!is_file(*S)) {
+	    S = std::next(S);
+	    continue;
+	}
+
+	auto its = fill_free(disk, D, std::next(S).base());
+	if (trace) {
+	    print_disk(disk);
+	    // print_blocks(disk.begin(), disk.end());
+	}
+	D = its.first;
+	S = std::prev(std::make_reverse_iterator(its.second));
+
+	D = std::next(D);
+	if (D == disk.end() || D == std::next(S).base())
+	    break;
+
+	S = std::next(S);
+	if (S == disk.rend() || D == std::next(S).base())
+	    break;
+    }
+}
+
 void defrag(Disk& disk, bool trace = false)
 {
     // Disk::iterator D = std::find(disk.begin(), disk.end(), [](is_free);
@@ -216,7 +297,7 @@ void defrag(Disk& disk, bool trace = false)
 	    continue;
 	}
 	
-	auto its = fill_free(disk, D, std::next(S).base());
+	auto its = maybe_move(disk, D, std::next(S).base());
 	if (trace) {
 	    print_disk(disk);
 	    // print_blocks(disk.begin(), disk.end());
@@ -224,28 +305,24 @@ void defrag(Disk& disk, bool trace = false)
 	D = its.first;
 	S = std::prev(std::make_reverse_iterator(its.second));
 
-	D = std::next(D);
-	if (D == disk.end() || D == std::next(S).base())
-	    break;
-
 	S = std::next(S);
 	if (S == disk.rend() || D == std::next(S).base())
 	    break;
     }
 }
-    
+
+
+
 int64_t checksum(const Disk& disk)
 {
     int64_t acc = 0;
     int64_t i = 0;
     for (const Block& b : disk) {
-	if (!is_file(b))
-	    break;	    
-	int64_t id = std::get<File>(b).id;
-	int64_t size = std::get<File>(b).size;
+	int64_t size = std::visit([](auto b_){return b_.size;}, b);
 	while (size --> 0) {
-	    // std::cout << acc << "+=" << i << "*" << id << std::endl;
-	    acc += (i++) * id;
+	    if (is_file(b))
+		acc += i * std::get<File>(b).id;
+	    i++;
 	}
     }
     return acc;
@@ -269,13 +346,15 @@ InputData read_input_data(const std::string& input)
 Answer part_1(const std::string& input)
 {
     InputData data = read_input_data(input);
-    defrag(data);
+    compact(data);
     return checksum(data);
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    InputData data = read_input_data(input);
+    defrag(data);
+    return checksum(data);
 }
 
 void tests()
@@ -309,7 +388,7 @@ void tests()
 
     // // 022111222......
     // std::vector<Block> copy = test_data[1];
-    // defrag(copy);
+    // compact(copy);
     // CHECK(copy.size() == test_data[1].size());
     // auto it = std::find(copy.begin(), copy.end(), is_free);
     // CHECK(it != copy.end());
@@ -352,15 +431,24 @@ void tests()
     // CHECK(id == std::get<File>(*rit3).id);
 
     copy = test_data[1];
-    defrag(copy);
+    compact(copy);
     CHECK(std::is_partitioned(copy.begin(), copy.end(), is_file));
 
     copy = test_data[0];
-    defrag(copy, false);
+    compact(copy, false);
     CHECK(std::is_partitioned(copy.begin(), copy.end(), is_file));
     CHECK(checksum(copy) == 1928);
 
     CHECK(part_1(test_input[0]) == 1928);
+
+    //////////////////////////////////
+
+    copy = test_data[0];
+    defrag(copy, false);
+    CHECK(checksum(copy) == 2858);
+
+    CHECK(part_2(test_input[0]) == 2858);
+
 }
 } //namespace day9
 
