@@ -11,6 +11,7 @@ namespace day10 {
 struct Node {
     char value;
     std::optional<std::unordered_set<size_t>> score;
+    std::optional<size_t> rating;
 };
 
 struct NodeGrid {
@@ -43,7 +44,7 @@ NodeGrid read_nodes(const std::string& input)
     for (size_t i = 0; i < grid.nrows; i++) {
 	CHECK(lines.at(i).size() == grid.ncols);
 	for (size_t j = 0; j < grid.ncols; j++) {
-	    grid.buf.push_back({lines.at(i).at(j), {}});
+	    grid.buf.push_back({lines.at(i).at(j), {}, {}});
 	}
     }
     return grid;
@@ -105,13 +106,17 @@ NodeMap make_map(const NodeGrid& grid)
 
 void find_nines(size_t i, NodeMap& map, NodeGrid& grid)
 {
-    if (grid.at(i).score.has_value())
+    if (grid.at(i).score.has_value()) {
+	CHECK(grid.at(i).rating.has_value());
 	return;
+    }
 
     grid.at(i).score = std::unordered_set<size_t>();
+    grid.at(i).rating = 0;
 
     if (grid.at(i).value == '9') {
 	grid.at(i).score->insert(i);
+	grid.at(i).rating = 1;
 	return;
     }
 
@@ -121,6 +126,7 @@ void find_nines(size_t i, NodeMap& map, NodeGrid& grid)
 	    find_nines(j, map, grid);
 	    grid.at(i).score->insert(grid.at(j).score->begin(),
 				     grid.at(j).score->end());
+	    *(grid.at(i).rating) += *(grid.at(j).rating);
 	}
     }
 }
@@ -141,6 +147,23 @@ int64_t total_score(NodeMap& map, NodeGrid& grid)
 			   });
 }
 
+int64_t trail_rating(size_t i, NodeMap& map, NodeGrid& grid)
+{
+    CHECK(grid.at(i).value == '0');
+    find_nines(i, map, grid);
+    CHECK(grid.at(i).rating.has_value());
+    return ans(grid.at(i).rating.value());
+}
+
+int64_t total_rating(NodeMap& map, NodeGrid& grid)
+{
+    return std::accumulate(map.roots.begin(), map.roots.end(),
+			   0ll, [&](int64_t acc, size_t i) {
+			       return acc + trail_rating(i, map, grid);
+			   });
+}
+
+
 Answer part_1(const std::string& input)
 {
     NodeGrid grid = read_nodes(input);
@@ -148,10 +171,13 @@ Answer part_1(const std::string& input)
     return total_score(map, grid);
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    NodeGrid grid = read_nodes(input);
+    NodeMap map = make_map(grid);
+    return total_rating(map, grid);
 }
+
 
 void tests()
 {
@@ -193,7 +219,30 @@ void tests()
 	"45678903\n"
 	"32019012\n"
 	"01329801\n"
-	"10456732\n"
+	"10456732\n",
+	// 5
+	".....0.\n"
+	"..4321.\n"
+	"..5..2.\n"
+	"..6543.\n"
+	"..7..4.\n"
+	"..8765.\n"
+	"..9....\n",
+	// 6
+	"..90..9\n"
+	"...1.98\n"
+	"...2..7\n"
+	"6543456\n"
+	"765.987\n"
+	"876....\n"
+	"987....\n",
+	// 7
+	"012345\n"
+	"123456\n"
+	"234567\n"
+	"345678\n"
+	"4.6789\n"
+	"56789.\n"
     };
 
     std::vector<NodeGrid> grids;
@@ -234,9 +283,15 @@ void tests()
     CHECK(trail_score(grids[3].idx(6,5), maps[3], grids[3]) == 2);
 
     CHECK(total_score(maps[4], grids[4]) == 36);
-
     CHECK(part_1(test_input[4]) == 36);
-    
+
+    /////////////////////////////////
+
+    CHECK(trail_rating(5, maps[5], grids[5]) == 3);
+    CHECK(trail_rating(3, maps[6], grids[6]) == 13);
+    CHECK(trail_rating(0, maps[7], grids[7]) == 227);
+    CHECK(total_rating(maps[4], grids[4]) == 81);
+    CHECK(part_2(test_input[4]) == 81);
 }
 
 } //namespace day10
