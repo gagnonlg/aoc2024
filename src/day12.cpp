@@ -1,5 +1,7 @@
 #include <numeric>
 #include <set>
+#include <map>
+
 
 #include <boost/pending/disjoint_sets.hpp>
 
@@ -145,19 +147,198 @@ uint64_t calculate_perimeter(const Region& r)
     return p;
 }
 
-uint64_t calculate_price(const Region& r)
+bool delta_between(const std::set<std::pair<int64_t, int64_t>>& set,
+				   bool prev,
+				   size_t i,
+				   size_t j)
+{
+    return set.contains({ans(i), ans(j)}) != prev;
+}
+
+using Delta = std::optional<std::pair<char, char>>;
+
+bool operator==(const Delta& lhs, const Delta& rhs)
+{
+    return lhs && rhs && lhs->first == rhs->first  && lhs->second == rhs->second;
+}
+
+std::vector<Delta> row_deltas(const std::map<std::pair<int64_t, int64_t>, char>& map,
+			      size_t i_row,
+			      size_t j_min,
+			      size_t j_max)
+{
+    std::vector<Delta> ds;
+    char prev = '\0';
+    bool had_prev = false;
+    for (size_t j = j_min; j <= j_max; j++) {
+	auto it = map.find({i_row, j});
+	if (it != map.end()) {
+	    if (had_prev && it->second == prev)
+		ds.push_back({});
+	    else {
+		Delta d = std::make_pair(prev, it->second);
+		ds.push_back(d);
+		prev = it->second;
+	    }
+	    had_prev = true;
+	} else {
+	    if (had_prev) {
+		ds.push_back(std::make_pair(prev, '\0'));
+	    } else {
+		ds.push_back({});
+	    }
+	    prev = '\0';
+	    had_prev = false;
+	}
+    }
+    return ds;
+}
+
+std::vector<Delta> col_deltas(const std::map<std::pair<int64_t, int64_t>, char>& map,
+			      size_t j_row,
+			      size_t i_min,
+			      size_t i_max)
+{
+    std::vector<Delta> ds;
+    char prev = '\0';
+    bool had_prev = false;
+    for (size_t i = i_min; i <= i_max; i++) {
+	auto it = map.find({i, j_row});
+	if (it != map.end()) {
+	    if (had_prev && it->second == prev)
+		ds.push_back({});
+	    else {
+		ds.push_back(Delta({prev, it->second}));
+		prev = it->second;
+	    }
+	    had_prev = true;
+	} else {
+	    if (had_prev) {
+		ds.push_back(std::make_pair(prev, '\0'));
+	    } else {
+		ds.push_back({});
+	    }
+	    prev = '\0';
+	    had_prev = false;
+	}
+    }
+    return ds;
+}
+
+// std::vector<size_t> col_deltas(const std::set<std::pair<int64_t, int64_t>>& set,
+// 				size_t j_row,
+// 				size_t i_min,
+// 				size_t i_max)
+// {
+//     // std::cout << "COL:" << std::endl;
+//     std::vector<size_t> ds;
+//     bool prev = false;
+//     for (size_t i = i_min; i <= i_max; i++) {
+// 	bool d = delta_between(set, prev, i, j_row);
+// 	if (d) {
+// 	    ds.push_back(1);
+// 	    prev = !prev;
+// 	} else {
+// 	    ds.push_back(0);
+// 	}
+// 	// std::cout << ds.back() << std::endl;
+//     }
+//     return ds;
+// }
+
+std::vector<Delta> filter_deltas(const std::vector<Delta>& prev,
+				 const std::vector<Delta>& cur)
+{
+    CHECK(prev.size() == cur.size());
+    std::vector<Delta> newv;
+    for (size_t i = 0; i < prev.size(); i++) {
+	newv.push_back((cur[i] && cur[i] == prev[i]) ? Delta({}) : cur[i]);
+    }
+    return newv;
+}
+
+uint64_t count_deltas(const std::vector<std::vector<Delta>>& deltas)
+{
+    size_t acc = 0;
+    for (const std::vector<Delta>& ds : deltas)
+	acc += std::accumulate(ds.begin(), ds.end(), 0ull,
+			       [](size_t acc_, const Delta& d) {
+				   if (d)
+				       return acc_ + 1;
+				   else
+				       return acc_;
+			       });
+    // std::cout << "COUNT=="<<acc<<std::endl;
+    return acc;
+}
+
+uint64_t count_sides(const Region& r)
+{
+    size_t imin = std::numeric_limits<size_t>::max();
+    size_t imax = std::numeric_limits<size_t>::min();
+    size_t jmin = std::numeric_limits<size_t>::max();
+    size_t jmax = std::numeric_limits<size_t>::min();
+    std::map<std::pair<int64_t, int64_t>, char> map;
+    for (const Cell& c : r) {
+	map.insert({{ans(c.i), ans(c.j)}, c.type});
+	if (c.i < imin)
+	    imin = c.i;
+	if (c.i > imax)
+	    imax = c.i;
+	if (c.j < jmin)
+	    jmin = c.j;
+	if (c.j > jmax)
+	    jmax = c.j;
+    }
+    // std::cout << "BOX: i=" << imin <<","<<imax<< " j=" << jmin <<","<<jmax<<std::endl;
+    
+    // Do rows
+    std::vector<std::vector<Delta>> j_deltas;
+    std::vector<std::vector<Delta>> j_deltas_f;
+    for (size_t i = imin; i <= imax; i++) {
+	j_deltas.push_back(row_deltas(map, i, jmin, jmax + 1));
+	if (i == imin) {
+	    j_deltas_f.push_back(j_deltas.at(i - imin));
+	}  else {
+	    j_deltas_f.push_back(
+		filter_deltas(j_deltas.at(i - imin - 1),
+			      j_deltas.at(i - imin)));
+	}
+    }
+
+    // do columns
+    std::vector<std::vector<Delta>> i_deltas;
+    std::vector<std::vector<Delta>> i_deltas_f;
+    for (size_t j = jmin; j <= jmax; j++) {
+	i_deltas.push_back(col_deltas(map, j, imin, imax + 1));
+	if (j == jmin) {
+	    i_deltas_f.push_back(i_deltas.at(j - jmin));
+	} else {
+	    i_deltas_f.push_back(
+		filter_deltas(i_deltas.at(j - jmin - 1),
+			      i_deltas.at(j - jmin)));
+	}
+    }
+    size_t rows = count_deltas(j_deltas_f);
+    size_t cols = count_deltas(i_deltas_f);
+    // std::cout << rows << "+" << cols << "=" << (rows+cols) << std::endl;
+    return rows + cols;
+}
+
+
+uint64_t calculate_price(const Region& r, bool bulk = false)
 {
     uint64_t area = r.size();
-    uint64_t perimeter = calculate_perimeter(r);
-    // std::cout << "Type:" << r.front().type << " Area:" << area << " Perimeter:" << perimeter << " Price:" << (area*perimeter) << std::endl;
+    uint64_t perimeter = bulk? count_sides(r) : calculate_perimeter(r);
+    // std::cout << "Bulk:" << bulk << " Type:" << r.front().type << " Area:" << area << " Perimeter:" << perimeter << " Price:" << (area*perimeter) << std::endl;
     return area * perimeter;
 }
 
-uint64_t calculate_price(const std::vector<Region>& rs)
+uint64_t calculate_price(const std::vector<Region>& rs, bool bulk = false)
 {
     return std::accumulate(rs.begin(), rs.end(), 0ull,
-			   [](uint64_t acc, const Region& r){
-			       return acc + calculate_price(r);
+			   [=](uint64_t acc, const Region& r){
+			       return acc + calculate_price(r, bulk);
 			   });
 }
 
@@ -166,10 +347,11 @@ Answer part_1(const std::string& input)
     return ans(calculate_price(get_regions(input)));
 }
 
-Answer part_2(const std::string& /*input*/)
+Answer part_2(const std::string& input)
 {
-    throw NotImplemented();
+    return ans(calculate_price(get_regions(input), true));
 }
+
 
 void tests()
 {
@@ -196,6 +378,20 @@ void tests()
 	"MIIIIIJJEE\n"
 	"MIIISIJEEE\n"
 	"MMMISSJEEE\n",
+	// 3
+	"EEEEE\n"
+	"EXXXX\n"
+	"EEEEE\n"
+	"EXXXX\n"
+	"EEEEE\n",
+	// 4
+	"AAAAAA\n"
+	"AAABBA\n"
+	"AAABBA\n"
+	"ABBAAA\n"
+	"ABBAAA\n"
+	"AAAAAA\n",
+
     };
 
     std::vector<Grid<Cell>> grids;
@@ -239,7 +435,24 @@ void tests()
     CHECK(part_1(test_input.at(0)) == 140);
     CHECK(part_1(test_input.at(1)) == 772);
     CHECK(part_1(test_input.at(2)) == 1930);
-		   
+
+    ///////////////////////////////////////
+    std::vector<uint64_t> test_prices_2;
+    std::transform(test_regions.begin(),
+		   test_regions.end(),
+		   std::back_inserter(test_prices_2),
+		   [](const std::vector<Region>& rs){return calculate_price(rs, true);});
+    CHECK(test_prices_2.at(0) == 80);
+    CHECK(test_prices_2.at(1) == 436);
+    CHECK(test_prices_2.at(2) == 1206);
+    CHECK(test_prices_2.at(3) == 236);
+    CHECK(test_prices_2.at(4) == 368);
+
+    CHECK(part_2(test_input.at(0)) == 80);
+    CHECK(part_2(test_input.at(1)) == 436);
+    CHECK(part_2(test_input.at(2)) == 1206);
+    CHECK(part_2(test_input.at(3)) == 236);
+    CHECK(part_2(test_input.at(4)) == 368);
     
 }
 
