@@ -156,3 +156,4 @@ std::vector<std::vector<int64_t>> split_int_lines(const char *str)
     std::stringstream stream(str);
     return split_int_lines(stream);
 }
+

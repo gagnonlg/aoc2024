@@ -166,3 +166,71 @@ Answer ans(uint64_t val)
     }
     return static_cast<Answer>(val);
 }
+
+template <typename T>
+struct Grid {
+    template <typename F>
+    Grid(const std::string& input, F f);
+    size_t nrows{0};
+    size_t ncols{0};
+    size_t idx(size_t i, size_t j) const;
+    const T& at(size_t i) const;
+    const T& at(size_t i, size_t j) const;
+    T& ref(size_t i);
+    T& ref(size_t i, size_t j);
+    std::vector<T> m_buf{};
+};
+
+
+template <typename T>
+template <typename F>
+Grid<T>::Grid(const std::string& input, F f)
+{
+    std::vector<std::string> lines = split_lines(input);
+
+    if (lines.empty())
+	return;
+
+    nrows = lines.size();
+    ncols = lines.front().size();
+    m_buf.resize(nrows * ncols);
+    
+    for (size_t i = 0; i < nrows; i++) {
+	CHECK(lines.at(i).size() == ncols);
+	for (size_t j = 0; j < ncols; j++) {
+	    m_buf.at(idx(i, j)) = f(i, j, lines.at(i).at(j));
+	}
+    }
+}
+
+template <typename T>
+size_t Grid<T>::idx(size_t i, size_t j) const
+{
+    CHECK(i < nrows);
+    CHECK(j < ncols);
+    return i * nrows + j;
+}
+
+template <typename T>
+const T& Grid<T>::at(size_t i) const
+{
+    return m_buf.at(i);
+}
+
+template <typename T>
+const T& Grid<T>::at(size_t i, size_t j) const
+{
+    return at(idx(i, j));
+}
+
+template <typename T>
+T& Grid<T>::ref(size_t i)
+{
+    return m_buf.at(i);
+}
+
+template <typename T>
+T& Grid<T>::ref(size_t i, size_t j)
+{
+    return m_buf.at(idx(i, j));
+}
