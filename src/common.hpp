@@ -37,6 +37,8 @@ std::vector<std::vector<int64_t>> split_int_lines(std::istream& stream);
 std::vector<std::vector<int64_t>> split_int_lines(const std::string& str);
 std::vector<std::vector<int64_t>> split_int_lines(const char *str);
 
+std::vector<std::vector<std::string>> split_line_blocks(std::istream& stream);
+std::vector<std::vector<std::string>> split_line_blocks(const std::string& stream);
 
 #define CHECK(cond) do { if (!(cond)) { throw std::runtime_error(std::format("Assertion error in file {} at line {}: {}", __FILE__, __LINE__, #cond)); } } while (0)
 

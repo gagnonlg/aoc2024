@@ -157,3 +157,29 @@ std::vector<std::vector<int64_t>> split_int_lines(const char *str)
     return split_int_lines(stream);
 }
 
+std::vector<std::vector<std::string>> split_line_blocks(std::istream& stream)
+{
+    std::vector<std::string> lines = split_lines(stream);
+    std::vector<std::vector<std::string>> blocks;
+    std::vector<std::string> block;
+
+    for (const std::string& line : lines) {
+	if (line.empty()) {
+	    blocks.push_back(std::move(block));
+	    block.clear();
+	} else {
+	    block.push_back(std::move(line));
+	}
+    }
+    if (!block.empty())
+	blocks.push_back(std::move(block));
+
+    return blocks;
+}
+
+std::vector<std::vector<std::string>> split_line_blocks(const std::string& str)
+{
+    std::stringstream stream(str);
+    return split_line_blocks(stream);
+}
+
